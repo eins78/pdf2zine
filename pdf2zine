@@ -2,17 +2,25 @@
 set -eu
 
 usage() {
-    echo "Usage: $0 [--keep-cover] [--keep-format] <input.pdf>"
+    echo "Usage: $0 [--keep-cover] [--keep-format] <input.pdf> [-- <bookletimposer args>...]"
     echo "  --keep-cover   Do not move the first page to the end before imposing"
     echo "  --keep-format  Let bookletimposer pick the output size (default: force A4)"
+    echo "  --             Pass remaining args through to bookletimposer"
     exit 1
 }
 
 KEEP_COVER=0
 KEEP_FORMAT=0
 INPUT=""
+PASSTHROUGH=()
+SEEN_DASHDASH=0
 for arg in "$@"; do
+    if [ "$SEEN_DASHDASH" -eq 1 ]; then
+        PASSTHROUGH+=("$arg")
+        continue
+    fi
     case "$arg" in
+        --) SEEN_DASHDASH=1 ;;
         --keep-cover) KEEP_COVER=1 ;;
         --keep-format) KEEP_FORMAT=1 ;;
         -h|--help) usage ;;
@@ -21,7 +29,12 @@ for arg in "$@"; do
     esac
 done
 
+# No input file: forward pass-through args directly to bookletimposer
+# (e.g. `pdf2zine -- -h` shows bookletimposer help)
 if [ -z "$INPUT" ]; then
+    if [ "${#PASSTHROUGH[@]}" -gt 0 ]; then
+        exec docker run --rm -v "$(pwd):/data" -w /data -u "$(id -u):$(id -g)" eins78/bookletimposer "${PASSTHROUGH[@]}"
+    fi
     usage
 fi
 
@@ -62,7 +75,7 @@ if [ "$KEEP_FORMAT" -eq 0 ]; then
 fi
 
 echo "making booklet"
-docker run --rm -v "${TMPDIR}:/data" -w /data -u "$(id -u):$(id -g)" eins78/bookletimposer --no-gui --booklet "${FORMAT_ARGS[@]}" "$BOOKLET_INPUT" --output="booklet.pdf"
+docker run --rm -v "${TMPDIR}:/data" -w /data -u "$(id -u):$(id -g)" eins78/bookletimposer --no-gui --booklet "${FORMAT_ARGS[@]}" "${PASSTHROUGH[@]}" "$BOOKLET_INPUT" --output="booklet.pdf"
 
 mv "booklet.pdf" "${OUTPUT_FILE}"
 echo "Done! Booklet created at: ${OUTPUT_FILE}"

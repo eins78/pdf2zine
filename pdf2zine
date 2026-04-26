@@ -1,9 +1,33 @@
 #!/bin/bash
 set -eu
 
+usage() {
+    echo "Usage: $0 [--keep-cover] [--scale-to-a5] <input.pdf>"
+    echo "  --keep-cover   Do not move the first page to the end before imposing"
+    echo "  --scale-to-a5  Scale A4 input down to A5 (2 pages per A4 sheet)"
+    exit 1
+}
+
+KEEP_COVER=0
+SCALE_TO_A5=0
+INPUT=""
+for arg in "$@"; do
+    case "$arg" in
+        --keep-cover) KEEP_COVER=1 ;;
+        --scale-to-a5) SCALE_TO_A5=1 ;;
+        -h|--help) usage ;;
+        -*) echo "Unknown option: $arg"; usage ;;
+        *) INPUT="$arg" ;;
+    esac
+done
+
+if [ -z "$INPUT" ]; then
+    usage
+fi
+
 # Check if input file exists
-if [ ! -f "$1" ]; then
-    echo "Error: Input file '$1' does not exist."
+if [ ! -f "$INPUT" ]; then
+    echo "Error: Input file '$INPUT' does not exist."
     exit 1
 fi
 
@@ -12,21 +36,33 @@ alias qpdf='docker run --rm -v "$(pwd):/data" -w /data -u "$(id -u):$(id -g)" ei
 TMPDIR="$(mktemp -d)"
 echo "Using temporary directory: $TMPDIR"
 
-INPUT_DIR="$(realpath "$(dirname "$1")")"
-FILENAME="$(basename "$1" .pdf)"
+INPUT_DIR="$(realpath "$(dirname "$INPUT")")"
+FILENAME="$(basename "$INPUT" .pdf)"
 OUTPUT_FILE="${INPUT_DIR}/${FILENAME}_booklet.pdf"
 INPUT_FILE="input.pdf"
 
-cp "$1" "${TMPDIR}/${INPUT_FILE}"
+cp "$INPUT" "${TMPDIR}/${INPUT_FILE}"
 cd "$TMPDIR"
 
 NPAGES=$(qpdf --show-npages "$INPUT_FILE")
 echo "Number of pages: $NPAGES"
-echo "Running qpdf command to move cover page to the end..."
-qpdf "$INPUT_FILE" --pages "$INPUT_FILE" 2-z "$INPUT_FILE" 1 -- "cover_moved.pdf"
+
+if [ "$KEEP_COVER" -eq 1 ]; then
+    echo "Keeping cover page in place (--keep-cover)"
+    BOOKLET_INPUT="$INPUT_FILE"
+else
+    echo "Running qpdf command to move cover page to the end..."
+    qpdf "$INPUT_FILE" --pages "$INPUT_FILE" 2-z "$INPUT_FILE" 1 -- "cover_moved.pdf"
+    BOOKLET_INPUT="cover_moved.pdf"
+fi
+
+FORMAT_ARGS=()
+if [ "$SCALE_TO_A5" -eq 1 ]; then
+    FORMAT_ARGS+=(--format=A4)
+fi
 
 echo "making booklet"
-docker run --rm -v "${TMPDIR}:/data" -w /data -u "$(id -u):$(id -g)" eins78/bookletimposer --no-gui --booklet "cover_moved.pdf" --output="booklet.pdf"
+docker run --rm -v "${TMPDIR}:/data" -w /data -u "$(id -u):$(id -g)" eins78/bookletimposer --no-gui --booklet "${FORMAT_ARGS[@]}" "$BOOKLET_INPUT" --output="booklet.pdf"
 
 mv "booklet.pdf" "${OUTPUT_FILE}"
 echo "Done! Booklet created at: ${OUTPUT_FILE}"

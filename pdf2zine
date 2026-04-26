@@ -2,19 +2,19 @@
 set -eu
 
 usage() {
-    echo "Usage: $0 [--keep-cover] [--scale-to-a5] <input.pdf>"
+    echo "Usage: $0 [--keep-cover] [--keep-format] <input.pdf>"
     echo "  --keep-cover   Do not move the first page to the end before imposing"
-    echo "  --scale-to-a5  Scale A4 input down to A5 (2 pages per A4 sheet)"
+    echo "  --keep-format  Let bookletimposer pick the output size (default: force A4)"
     exit 1
 }
 
 KEEP_COVER=0
-SCALE_TO_A5=0
+KEEP_FORMAT=0
 INPUT=""
 for arg in "$@"; do
     case "$arg" in
         --keep-cover) KEEP_COVER=1 ;;
-        --scale-to-a5) SCALE_TO_A5=1 ;;
+        --keep-format) KEEP_FORMAT=1 ;;
         -h|--help) usage ;;
         -*) echo "Unknown option: $arg"; usage ;;
         *) INPUT="$arg" ;;
@@ -57,7 +57,7 @@ else
 fi
 
 FORMAT_ARGS=()
-if [ "$SCALE_TO_A5" -eq 1 ]; then
+if [ "$KEEP_FORMAT" -eq 0 ]; then
     FORMAT_ARGS+=(--format=A4)
 fi
 

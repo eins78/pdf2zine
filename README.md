@@ -5,9 +5,9 @@ They can then be printed double sided (flipped on the short edge) on A4 paper an
 
 It consists of three parts:
 
-- [`pdf2zine`](./pdf2zine): small bash script that uses `bookletimposer` and `qpdf`. Its only needed if the back page of the cover is the first page of the PDF (because that is easier to produce in InDesign). The page will be moved to the end of the PDF before booklet imposition.
+- [`pdf2zine`](./pdf2zine): small bash script that uses `bookletimposer` and `qpdf`. Its only needed if the back page of the cover is the first page of the PDF (because that is easier to produce in InDesign). The page will be moved to the end of the PDF before booklet imposition. By default the output is forced to A4 (so A4 input is scaled down to A5 and placed 2-up per sheet).
     - `--keep-cover`: skip the cover-move step and impose the PDF as-is.
-    - `--scale-to-a5`: force A4 output, scaling A4 input down to A5 (2 pages per A4 sheet) instead of producing A3.
+    - `--keep-format`: let bookletimposer pick the output size instead of forcing A4 (e.g. A4 input → A3 output).
 - [`bookletimposer-docker`](./bookletimposer-docker): docker image that contains `pdfimposer`
 - [`qdf-docker`](./qdf-docker): docker image that contains `qpdf`
 
